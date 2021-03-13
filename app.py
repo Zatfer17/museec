@@ -5168,7 +5168,7 @@ def home():
 
 @app.route('/api/style_transfer', methods=['GET'])
 def processing():
-    url = 'https:' +  request.form['image']
+    url = 'https:' + request.form['image']
     content_path = tf.keras.utils.get_file(request.form['image'].split('/')[-1],url)
 
     random_art = get_random_painting()
