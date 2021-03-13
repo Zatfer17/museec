@@ -1,7 +1,51 @@
+from flask import Flask
+import tensorflow as tf
+import tensorflow_hub as hub
 import tensorflow as tf
 import tensorflow_hub as hub
 import matplotlib.pyplot as plt
+from PIL import Image
+import base64
+from flask import Flask, request, send_file
+import os
 import random
+
+def get_random_painting():
+    return urls[random.randint(0, len(urls))]
+
+def img_scaler(image, max_dim = 512):
+
+  # Casts a tensor to a new type.
+  original_shape = tf.cast(tf.shape(image)[:-1], tf.float32)
+
+  # Creates a scale constant for the image
+  scale_ratio = max_dim / max(original_shape)
+
+  # Casts a tensor to a new type.
+  new_shape = tf.cast(original_shape * scale_ratio, tf.int32)
+
+  # Resizes the image based on the scaling constant generated above
+  return tf.image.resize(image, new_shape)
+
+def load_img(path_to_img):
+
+  # Reads and outputs the entire contents of the input filename.
+  img = tf.io.read_file(path_to_img)
+
+  # Detect whether an image is a BMP, GIF, JPEG, or PNG, and
+  # performs the appropriate operation to convert the input
+  # bytes string into a Tensor of type dtype
+  img = tf.image.decode_image(img, channels=3)
+
+  # Convert image to dtype, scaling (MinMax Normalization) its values if needed.
+  img = tf.image.convert_image_dtype(img, tf.float32)
+
+  # Scale the image using the custom function we created
+  img = img_scaler(img)
+
+  # Adds a fourth dimension to the Tensor because
+  # the model requires a 4-dimensional Tensor
+  return img[tf.newaxis, :]
 
 urls = [
   "https://uploads0.wikiart.org/00103/images/carles-delclaux-is/rostolls-cremats-1988-carles-delclaux-cdan.jpg",
@@ -5121,54 +5165,36 @@ urls = [
   "https://uploads8.wikiart.org/untitled-1941(3).jpg"
 ]
 
-def get_random_painting():
-    return urls[random.randint(0, len(urls))]
+app = Flask(__name__)
 
-def img_scaler(image, max_dim = 512):
+@app.route("/")
+def home():
+    return "<h1>Running Flask on Google Colab!</h1>"
 
-  # Casts a tensor to a new type.
-  original_shape = tf.cast(tf.shape(image)[:-1], tf.float32)
+@app.route('/api/style_transfer', methods=['GET'])
+def processing():
+    url = 'https:' +  request.form['image']
+    content_path = tf.keras.utils.get_file(request.form['image'].split('/')[-1],url)
 
-  # Creates a scale constant for the image
-  scale_ratio = max_dim / max(original_shape)
+    random_art = get_random_painting()
+    style_path = tf.keras.utils.get_file(random_art.split('/')[-1],random_art)
 
-  # Casts a tensor to a new type.
-  new_shape = tf.cast(original_shape * scale_ratio, tf.int32)
+    content_image = load_img(content_path)
+    style_image = load_img(style_path)
 
-  # Resizes the image based on the scaling constant generated above
-  return tf.image.resize(image, new_shape)
+    hub_module = hub.load('https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/1')
 
-def load_img(path_to_img):
+    stylized_image = hub_module(tf.constant(content_image), tf.constant(style_image))[0]
 
-  # Reads and outputs the entire contents of the input filename.
-  img = tf.io.read_file(path_to_img)
+    tf.keras.preprocessing.image.save_img(request.form['image'].split('/')[-1], stylized_image[0])
 
-  # Detect whether an image is a BMP, GIF, JPEG, or PNG, and
-  # performs the appropriate operation to convert the input
-  # bytes string into a Tensor of type dtype
-  img = tf.image.decode_image(img, channels=3)
+    resp = send_file(request.form['image'].split('/')[-1], mimetype='image/png')
+    try:
+        os.remove(content_path)
+        os.remove(request.form['image'].split('/')[-1])
+    except:
+        print('DELETION FAILED')
+    return resp
 
-  # Convert image to dtype, scaling (MinMax Normalization) its values if needed.
-  img = tf.image.convert_image_dtype(img, tf.float32)
-
-  # Scale the image using the custom function we created
-  img = img_scaler(img)
-
-  # Adds a fourth dimension to the Tensor because
-  # the model requires a 4-dimensional Tensor
-  return img[tf.newaxis, :]
-
-content_path = tf.keras.utils.get_file('base', 'https://images.unsplash.com/photo-1501820488136-72669149e0d4')
-
-style_path = tf.keras.utils.get_file('style', get_random_painting())
-
-content_image = load_img(content_path)
-style_image = load_img(style_path)
-
-hub_module = hub.load('https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/1')
-
-stylized_image = hub_module(tf.constant(content_image), tf.constant(style_image))[0]
-
-plt.imshow(stylized_image[0])
-plt.savefig('stylized.jpg')
-
+if __name__ == '__main__':
+    app.run(debug=True, host='127.0.0.1')
