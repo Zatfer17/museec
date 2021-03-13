@@ -1,9 +1,6 @@
 tensorflow_hub
 tensorflow
-matplotlib
-Pillow
-base64
-flask
+Flask
 os
 random
 gunicorn

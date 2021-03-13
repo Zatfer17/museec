@@ -1,11 +1,6 @@
 from flask import Flask
 import tensorflow as tf
 import tensorflow_hub as hub
-import tensorflow as tf
-import tensorflow_hub as hub
-import matplotlib.pyplot as plt
-from PIL import Image
-import base64
 from flask import Flask, request, send_file
 import os
 import random
