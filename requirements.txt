@@ -1,7 +1,7 @@
 tensorflow_hub
 tensorflow
 matplotlib
-PIL
+Pillow
 base64
 flask
 os
