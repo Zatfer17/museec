@@ -1,6 +1,4 @@
 tensorflow_hub
 tensorflow
 Flask
-os
-random
 gunicorn
